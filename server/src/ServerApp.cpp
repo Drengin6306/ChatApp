@@ -11,6 +11,7 @@
 #include <Poco/FormattingChannel.h>
 #include <Poco/ConsoleChannel.h>
 #include <Poco/AutoPtr.h>
+#include <Poco/File.h>
 #include <iostream>
 
 // 连接工厂实现
@@ -98,13 +99,43 @@ void ServerApp::loadConfiguration()
 {
     try
     {
-        // 加载配置文件
-        Poco::AutoPtr<Poco::Util::PropertyFileConfiguration> pConfig =
-            new Poco::Util::PropertyFileConfiguration("config/server.properties");
+        std::vector<std::string> configPaths = {
+            "config/server.properties",      // 当前目录下的 config
+            "../config/server.properties",   // 上级目录的 config
+            "./bin/config/server.properties" // bin 目录下的 config
+        };
+
+        Poco::AutoPtr<Poco::Util::PropertyFileConfiguration> pConfig;
+        std::string usedPath;
+
+        for (const auto &path : configPaths)
+        {
+            try
+            {
+                // 检查文件是否存在
+                Poco::File configFile(path);
+                if (configFile.exists())
+                {
+                    pConfig = new Poco::Util::PropertyFileConfiguration(path);
+                    usedPath = path;
+                    break;
+                }
+            }
+            catch (const Poco::Exception &)
+            {
+                continue;
+            }
+        }
+
+        if (pConfig.isNull())
+        {
+            throw Poco::FileNotFoundException("配置文件未找到");
+        }
+
         Poco::Util::LayeredConfiguration &config = Poco::Util::Application::config();
         config.add(pConfig, "file", 100, false);
 
-        // 从配置文件读取设置（如果可用）
+        // 读取配置值
         if (config.hasProperty("server.port"))
         {
             port_ = config.getInt("server.port", 9999);
@@ -131,6 +162,7 @@ void ServerApp::loadConfiguration()
         auto &logger = Poco::Logger::get("ServerApp");
         logger.warning("无法加载配置文件，使用默认设置: " + std::string(e.what()));
     }
+
     auto &logger = Poco::Logger::get("ServerApp");
     logger.information("监听地址: " + host_);
     logger.information("端口: " + std::to_string(port_));
