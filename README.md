@@ -27,63 +27,15 @@ ChatApp/
 - C++17 编译器
 - Poco C++ 库
 
-### 安装 Poco 库
+### Poco 库
 
-#### Debian/Ubuntu
-```bash
-sudo apt update
-sudo apt install libpoco-dev
-```
+本项目使用 Poco C++ 库进行网络编程和应用程序框架支持。
 
-#### CentOS/RHEL/Fedora
-```bash
-# CentOS/RHEL 8+
-sudo dnf install poco-devel
+**官方网站**: https://pocoproject.org/  
+**GitHub 仓库**: https://github.com/pocoproject/poco  
+**文档**: https://docs.pocoproject.org/  
 
-# CentOS/RHEL 7
-sudo yum install poco-devel
-
-# Fedora
-sudo dnf install poco-devel
-```
-
-#### Arch Linux
-```bash
-sudo pacman -S poco
-```
-
-#### macOS
-```bash
-# 使用 Homebrew
-brew install poco
-
-# 使用 MacPorts
-sudo port install poco
-```
-
-#### Windows
-```bash
-# 使用 vcpkg
-vcpkg install poco
-
-# 使用 Conan
-conan install poco/1.12.4@
-```
-
-#### 从源码编译
-```bash
-# 下载源码
-wget https://pocoproject.org/releases/poco-1.12.4/poco-1.12.4-all.tar.gz
-tar -xzf poco-1.12.4-all.tar.gz
-cd poco-1.12.4-all
-
-# 编译安装
-mkdir cmake-build
-cd cmake-build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
-sudo make install
-```
+请根据您的操作系统安装相应的 Poco 开发包。
 
 ## 编译和运行
 
