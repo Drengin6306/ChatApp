@@ -16,3 +16,6 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
+
+# vcpkg 用户配置
+CmakeUserPresets.json
