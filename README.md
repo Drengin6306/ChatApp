@@ -47,7 +47,6 @@ ChatApp/
 
 ### Windows 平台
 
-#### 使用 CMake 预设编译（推荐）
 ```cmd
 # 配置项目
 cmake --preset=windows-vs2022
@@ -59,15 +58,8 @@ cmake --build --preset=windows-debug
 cmake --build --preset=windows-release
 ```
 
-#### 手动配置
-```cmd
-cmake -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake -S. -Bbuild -G "Visual Studio 17 2022"
-cmake --build build --config Release
-```
-
 ### Linux 平台
 
-#### 使用 CMake 预设编译（推荐）
 ```bash
 # 配置并构建 Debug 版本
 cmake --preset=linux-debug
@@ -76,12 +68,6 @@ make -C build
 # 配置并构建 Release 版本
 cmake --preset=linux-release
 make -C build
-```
-
-#### 手动配置
-```bash
-cmake -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release
-cmake --build build
 ```
 
 ## 启动应用程序
@@ -100,7 +86,7 @@ cmake --build build
 #### Linux
 ```bash
 # Debug 或 Release 版本
-./build/bin/chat_server
+./bin/chat_server
 ```
 
 ### 启动客户端
@@ -108,16 +94,16 @@ cmake --build build
 #### Windows
 ```cmd
 # Debug 版本
-.\build\bin\chat_client.exe
+.\bin\chat_client.exe
 
 # Release 版本
-.\build\bin\chat_client.exe
+.\bin\chat_client.exe
 ```
 
 #### Linux
 ```bash
 # Debug 或 Release 版本
-./build/bin/chat_client
+./bin/chat_client
 ```
 
 ## 使用说明
@@ -164,40 +150,6 @@ cmake --list-presets=configure
 # 查看构建预设
 cmake --list-presets=build
 ```
-
-### vcpkg 清单模式
-
-项目使用 vcpkg 的清单模式（manifest mode），依赖项在 `vcpkg.json` 中声明：
-
-```json
-{
-  "dependencies": [
-    {
-      "name": "poco",
-      "version>=": "1.12.4"
-    }
-  ]
-}
-```
-
-编译时会自动安装到项目本地，不会影响全局环境。
-
-### 常见问题解决
-
-#### Windows 平台
-- 确保安装了 Visual Studio 2022 和 C++ 开发工具
-- 设置正确的 `VCPKG_ROOT` 环境变量
-
-#### Linux 平台
-- 确保安装了必要的开发工具：
-  ```bash
-  # Ubuntu/Debian
-  sudo apt install build-essential cmake git
-
-  # CentOS/RHEL
-  sudo yum groupinstall "Development Tools"
-  sudo yum install cmake git
-  ```
 
 ## 贡献
 
