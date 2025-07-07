@@ -14,6 +14,7 @@ file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 add_subdirectory(server)
 add_subdirectory(client)
+add_subdirectory(protocol)
 
 add_custom_target(copy_config ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
