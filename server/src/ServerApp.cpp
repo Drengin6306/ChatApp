@@ -2,14 +2,8 @@
 #include "ChatConnection.h"
 #include <Poco/Net/TCPServerParams.h>
 #include <Poco/Net/ServerSocket.h>
-#include <Poco/Util/Option.h>
-#include <Poco/Util/OptionSet.h>
-#include <Poco/Util/HelpFormatter.h>
 #include <Poco/Util/PropertyFileConfiguration.h>
 #include <Poco/Logger.h>
-#include <Poco/PatternFormatter.h>
-#include <Poco/FormattingChannel.h>
-#include <Poco/ConsoleChannel.h>
 #include <Poco/AutoPtr.h>
 #include <Poco/File.h>
 #include <iostream>
@@ -21,7 +15,7 @@ Poco::Net::TCPServerConnection *ChatConnectionFactory::createConnection(const Po
 }
 
 ServerApp::ServerApp()
-    : helpRequested_(false), port_(9999), host_("0.0.0.0"), maxConnections_(100)
+    : port_(9999), host_("0.0.0.0"), maxConnections_(100)
 {
 }
 
@@ -52,110 +46,34 @@ void ServerApp::uninitialize()
     ServerApplication::uninitialize();
 }
 
-void ServerApp::defineOptions(Poco::Util::OptionSet &options)
-{
-    ServerApplication::defineOptions(options);
-
-    options.addOption(
-        Poco::Util::Option("help", "h", "显示帮助信息")
-            .required(false)
-            .repeatable(false)
-            .callback(Poco::Util::OptionCallback<ServerApp>(this, &ServerApp::handleOption)));
-
-    options.addOption(
-        Poco::Util::Option("port", "p", "设置监听端口")
-            .required(false)
-            .repeatable(false)
-            .argument("PORT")
-            .callback(Poco::Util::OptionCallback<ServerApp>(this, &ServerApp::handleOption)));
-}
-
-void ServerApp::handleOption(const std::string &name, const std::string &value)
-{
-    ServerApplication::handleOption(name, value);
-
-    if (name == "help")
-    {
-        helpRequested_ = true;
-        displayHelp();
-        stopOptionsProcessing();
-    }
-    else if (name == "port")
-    {
-        port_ = std::stoi(value);
-    }
-}
-
-void ServerApp::displayHelp()
-{
-    Poco::Util::HelpFormatter helpFormatter(options());
-    helpFormatter.setCommand(commandName());
-    helpFormatter.setUsage("选项");
-    helpFormatter.setHeader("聊天室服务器");
-    helpFormatter.format(std::cout);
-}
-
 void ServerApp::loadConfiguration()
 {
     try
     {
-        std::vector<std::string> configPaths = {
-            "config/server.properties",      // 当前目录下的 config
-            "../config/server.properties",   // 上级目录的 config
-            "./bin/config/server.properties" // bin 目录下的 config
-        };
+        std::string configPath = "config/server.properties";
 
-        Poco::AutoPtr<Poco::Util::PropertyFileConfiguration> pConfig;
-        std::string usedPath;
-
-        for (const auto &path : configPaths)
+        Poco::File configFile(configPath);
+        if (configFile.exists())
         {
-            try
-            {
-                // 检查文件是否存在
-                Poco::File configFile(path);
-                if (configFile.exists())
-                {
-                    pConfig = new Poco::Util::PropertyFileConfiguration(path);
-                    usedPath = path;
-                    break;
-                }
-            }
-            catch (const Poco::Exception &)
-            {
-                continue;
-            }
-        }
+            Poco::AutoPtr<Poco::Util::PropertyFileConfiguration> pConfig =
+                new Poco::Util::PropertyFileConfiguration(configPath);
 
-        if (pConfig.isNull())
-        {
-            throw Poco::FileNotFoundException("配置文件未找到");
-        }
+            Poco::Util::LayeredConfiguration &config = Poco::Util::Application::config();
+            config.add(pConfig, "file", 100, false);
 
-        Poco::Util::LayeredConfiguration &config = Poco::Util::Application::config();
-        config.add(pConfig, "file", 100, false);
-
-        // 读取配置值
-        if (config.hasProperty("server.port"))
-        {
+            // 读取配置值
             port_ = config.getInt("server.port", 9999);
-        }
-        if (config.hasProperty("server.host"))
-        {
             host_ = config.getString("server.host", "0.0.0.0");
-        }
-        if (config.hasProperty("server.maxConnections"))
-        {
             maxConnections_ = config.getInt("server.maxConnections", 100);
-        }
 
-        auto &logger = Poco::Logger::get("ServerApp");
-        logger.information("配置文件加载成功");
-    }
-    catch (const Poco::FileNotFoundException &e)
-    {
-        auto &logger = Poco::Logger::get("ServerApp");
-        logger.warning("配置文件未找到，使用默认设置: " + std::string(e.what()));
+            auto &logger = Poco::Logger::get("ServerApp");
+            logger.information("配置文件加载成功");
+        }
+        else
+        {
+            auto &logger = Poco::Logger::get("ServerApp");
+            logger.warning("配置文件未找到，使用默认设置");
+        }
     }
     catch (const std::exception &e)
     {
@@ -171,11 +89,6 @@ void ServerApp::loadConfiguration()
 
 int ServerApp::main(const std::vector<std::string> &args)
 {
-    if (helpRequested_)
-    {
-        return Poco::Util::Application::EXIT_OK;
-    }
-
     auto &logger = Poco::Logger::get("ServerApp");
 
     try

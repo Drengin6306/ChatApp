@@ -1,9 +1,14 @@
 # 编译生成文件
 build/
 bin/
+lib/
 *.o
 *.so
 *.a
+chat_server
+chat_client
+chat_server.exe
+chat_client.exe
 
 # IDE 文件
 .vscode/

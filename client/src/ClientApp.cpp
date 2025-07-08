@@ -50,7 +50,6 @@ void ClientApp::connectToServer(const std::string &host, int port)
 
     connected_ = true;
     std::cout << "连接成功！" << std::endl;
-    std::cout << "输入消息并按回车发送，输入 'quit' 退出" << std::endl;
     std::cout << "----------------------------------------" << std::endl;
 }
 
