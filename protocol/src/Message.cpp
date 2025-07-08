@@ -516,12 +516,12 @@ bool UserStatusUpdate::fromJSON(const Poco::JSON::Object::Ptr &json)
 }
 
 // ErrorMessage实现
-ErrorMessage::ErrorMessage() : Message(MessageType::ERROR), error_code_(0), error_message_("")
+ErrorMessage::ErrorMessage() : Message(MessageType::ERROR_MESSAGE), error_code_(0), error_message_("")
 {
 }
 
 ErrorMessage::ErrorMessage(int error_code, const std::string &error_message)
-    : Message(MessageType::ERROR), error_code_(error_code), error_message_(error_message)
+    : Message(MessageType::ERROR_MESSAGE), error_code_(error_code), error_message_(error_message)
 {
 }
 
@@ -595,7 +595,7 @@ std::unique_ptr<Message> Message::createMessage(MessageType type)
         return std::make_unique<UserListResponse>();
     case MessageType::USER_STATUS_UPDATE:
         return std::make_unique<UserStatusUpdate>();
-    case MessageType::ERROR:
+    case MessageType::ERROR_MESSAGE:
         return std::make_unique<ErrorMessage>();
     default:
         return nullptr;

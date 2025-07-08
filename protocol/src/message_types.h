@@ -24,14 +24,14 @@ enum class MessageType : uint8_t
 
     // 系统相关
     HEARTBEAT = 30,
-    ERROR = 31
+    ERROR_MESSAGE = 31
 };
 
 // 消息状态
 enum class MessageStatus : uint8_t
 {
     SUCCESS = 0,
-    ERROR = 1,
+    FAILED = 1,
     TIMEOUT = 2,
     USER_NOT_FOUND = 3,
     USER_ALREADY_EXISTS = 4,
