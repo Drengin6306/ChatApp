@@ -7,18 +7,19 @@ file(GLOB CLIENT_SOURCES
 
 add_executable(chat_client ${CLIENT_SOURCES})
 
-set_target_properties(chat_client PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin
-)
-
 target_link_libraries(chat_client 
     PRIVATE
+    chat_protocol
     Poco::Foundation
     Poco::Net
-    Poco::Util
 )
 
-target_include_directories(chat_client PRIVATE 
+target_include_directories(chat_client 
+    PRIVATE 
+    src/
+    ${CMAKE_SOURCE_DIR}/protocol/src/
+)
+
+target_compile_features(chat_client PRIVATE cxx_std_17)
     ${POCO_INCLUDE_DIR}
-    inc/
 )

@@ -17,10 +17,10 @@ target_link_libraries(chat_server
     Poco::Net
     Poco::Util
     Poco::JSON
+    chat_protocol
 )
 
 # 设置包含目录
 target_include_directories(chat_server PRIVATE 
     ${POCO_INCLUDE_DIR}
-    inc/
 )

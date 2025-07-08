@@ -5,10 +5,11 @@ lib/
 *.o
 *.so
 *.a
+*.dll
+*.exe
+*.pdb
 chat_server
 chat_client
-chat_server.exe
-chat_client.exe
 
 # IDE 文件
 .vscode/

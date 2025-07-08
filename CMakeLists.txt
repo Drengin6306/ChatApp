@@ -10,8 +10,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR})
 
 find_package(Poco REQUIRED COMPONENTS Foundation Net Util JSON)
 
-file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
-
+add_subdirectory(protocol)
 add_subdirectory(server)
 add_subdirectory(client)
-add_subdirectory(protocol)
