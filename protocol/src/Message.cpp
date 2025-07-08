@@ -31,7 +31,7 @@ public:
         uint32_t random_part = dis(gen) & 0xFF;
         uint32_t id = timestamp_part | random_part;
 
-        return {id, now_sec};
+        return {id, static_cast<uint64_t>(now_sec)};
     }
 
     static uint32_t generateID()

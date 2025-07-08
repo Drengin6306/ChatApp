@@ -14,7 +14,8 @@
 UserManager::UserManager() : usersFilePath_("config/users.json")
 {
     initializeRandomGenerator();
-    loadUsersFromFile();
+    users_.clear();
+    accountIndex_.clear();
 }
 
 UserManager &UserManager::getInstance()
@@ -23,15 +24,12 @@ UserManager &UserManager::getInstance()
     return instance;
 }
 
-void UserManager::loadUsersFromFile()
+User UserManager::loadUserFromFile(const std::string &account)
 {
-    std::lock_guard<std::mutex> lock(usersMutex_);
-
     std::ifstream file(usersFilePath_);
     if (!file.is_open())
     {
-        users_.clear();
-        return;
+        return User{};
     }
 
     try
@@ -47,44 +45,110 @@ void UserManager::loadUsersFromFile()
             {
                 Poco::JSON::Object::Ptr userJson = userVar.extract<Poco::JSON::Object::Ptr>();
                 User user = User::fromJson(userJson);
-                users_.push_back(user);
+                if (user.account == account)
+                {
+                    return user;
+                }
+            }
+        }
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error loading user from file: " << e.what() << std::endl;
+    }
+
+    return User{};
+}
+
+std::vector<User> UserManager::loadAllUsersFromFile()
+{
+    std::vector<User> allUsers;
+
+    std::ifstream file(usersFilePath_);
+    if (!file.is_open())
+    {
+        return allUsers;
+    }
+
+    try
+    {
+        Poco::JSON::Parser parser;
+        Poco::Dynamic::Var result = parser.parse(file);
+        Poco::JSON::Object::Ptr json = result.extract<Poco::JSON::Object::Ptr>();
+
+        if (json->has("users"))
+        {
+            Poco::JSON::Array::Ptr usersArray = json->getArray("users");
+            for (const auto &userVar : *usersArray)
+            {
+                Poco::JSON::Object::Ptr userJson = userVar.extract<Poco::JSON::Object::Ptr>();
+                User user = User::fromJson(userJson);
+                allUsers.push_back(user);
             }
         }
     }
     catch (const std::exception &e)
     {
         std::cerr << "Error loading users file: " << e.what() << std::endl;
-        users_.clear();
     }
+
+    return allUsers;
 }
 
-void UserManager::saveUsersToFile()
+void UserManager::appendUserToFile(const User &user)
 {
-    std::lock_guard<std::mutex> lock(usersMutex_);
-
     Poco::JSON::Object j;
-    Poco::JSON::Array::Ptr usersArray = new Poco::JSON::Array;
+    Poco::JSON::Array::Ptr usersArray;
 
-    for (const auto &user : users_)
+    // 尝试读取现有文件
+    std::ifstream inFile(usersFilePath_);
+    if (inFile.is_open())
     {
-        usersArray->add(user.toJson());
+        try
+        {
+            Poco::JSON::Parser parser;
+            Poco::Dynamic::Var result = parser.parse(inFile);
+            Poco::JSON::Object::Ptr existingJson = result.extract<Poco::JSON::Object::Ptr>();
+
+            if (existingJson->has("users"))
+            {
+                usersArray = existingJson->getArray("users");
+            }
+            else
+            {
+                usersArray = new Poco::JSON::Array;
+            }
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Error reading existing users file: " << e.what() << std::endl;
+            usersArray = new Poco::JSON::Array;
+        }
+        inFile.close();
+    }
+    else
+    {
+        usersArray = new Poco::JSON::Array;
     }
 
+    // 添加新用户
+    usersArray->add(user.toJson());
     j.set("users", usersArray);
 
-    std::ofstream file(usersFilePath_);
-    if (file.is_open())
+    // 写入文件
+    std::ofstream outFile(usersFilePath_);
+    if (outFile.is_open())
     {
         try
         {
             std::ostringstream oss;
             j.stringify(oss, 2);
-            file << oss.str();
-            file.flush();
+            outFile << oss.str();
+            outFile.flush();
         }
         catch (const std::exception &e)
         {
-            std::cerr << "Error saving users file: " << e.what() << std::endl;
+            std::cerr << "Error saving user to file: " << e.what() << std::endl;
         }
     }
     else
@@ -101,9 +165,9 @@ void UserManager::initializeRandomGenerator()
 }
 
 // 生成基于哈希的用户ID
-std::string UserManager::generateHashBasedUserId(const std::string &username)
+std::string UserManager::generateHashBasedAccount(const std::string &username)
 {
-    std::string userId;
+    std::string account;
     int maxAttempts = 50; // 最多尝试50次
     int attempts = 0;
 
@@ -128,33 +192,61 @@ std::string UserManager::generateHashBasedUserId(const std::string &username)
             hashValue = (hashValue << 8) | digest[i];
         }
 
-        // 映射到9位数范围 (100000000 - 999999999)
+        // 显示映射到9位数范围 (100000000 - 999999999)
         uint64_t accountNumber = (hashValue % 900000000) + 100000000;
-        userId = std::to_string(accountNumber);
+        account = std::to_string(accountNumber);
 
         attempts++;
 
         if (attempts >= maxAttempts)
         {
             uint64_t extendedAccount = (hashValue % 9000000000ULL) + 1000000000ULL;
-            userId = std::to_string(extendedAccount);
+            account = std::to_string(extendedAccount);
         }
 
-    } while (userIdExists(userId));
+    } while (accountExists(account));
 
-    return userId;
+    return account;
 }
 
-bool UserManager::userIdExists(const std::string &userId)
+void UserManager::rebuildAccountIndex()
 {
-    for (const auto &user : users_)
+    accountIndex_.clear();
+    for (size_t i = 0; i < users_.size(); ++i)
     {
-        if (user.userId == userId)
-        {
-            return true;
-        }
+        accountIndex_[users_[i].account] = i;
     }
-    return false;
+}
+
+User *UserManager::findUserByAccount(const std::string &account)
+{
+    auto it = accountIndex_.find(account);
+    if (it != accountIndex_.end() && it->second < users_.size())
+    {
+        return &users_[it->second];
+    }
+    return nullptr;
+}
+
+bool UserManager::accountExists(const std::string &account)
+{
+    return accountExistsInFile(account);
+}
+
+bool UserManager::accountExistsInFile(const std::string &account)
+{
+    User user = loadUserFromFile(account);
+    return !user.account.empty();
+}
+
+User *UserManager::findUserFromFile(const std::string &account)
+{
+    static User foundUser = loadUserFromFile(account);
+    if (!foundUser.account.empty())
+    {
+        return &foundUser;
+    }
+    return nullptr;
 }
 
 std::string UserManager::registerUser(const std::string &username, const std::string &password)
@@ -168,9 +260,9 @@ std::string UserManager::registerUser(const std::string &username, const std::st
     }
 
     // 生成基于哈希的随机用户ID
-    std::string userId = generateHashBasedUserId(username);
+    std::string account = generateHashBasedAccount(username);
 
-    if (userId.empty())
+    if (account.empty())
     {
         std::cerr << "Failed to generate unique user ID" << std::endl;
         return "";
@@ -179,61 +271,110 @@ std::string UserManager::registerUser(const std::string &username, const std::st
     // 创建新用户
     User newUser;
     newUser.username = username;
-    newUser.userId = userId;
+    newUser.account = account;
     newUser.passwordHash = hashPassword(password);
-    newUser.isOnline = false;
 
-    users_.push_back(newUser);
-    saveUsersToFile();
+    // 向文件追加新用户
+    appendUserToFile(newUser);
 
-    return userId;
+    return account;
 }
 
-bool UserManager::authenticateUser(const std::string &userId, const std::string &password)
+bool UserManager::authenticateUser(const std::string &account, const std::string &password)
 {
     std::lock_guard<std::mutex> lock(usersMutex_);
 
-    for (auto &user : users_)
+    // 从文件中加载单个用户
+    User user = loadUserFromFile(account);
+    if (!user.account.empty())
     {
-        if (user.userId == userId)
+        std::string hashedPassword = hashPassword(password);
+        if (hashedPassword == user.passwordHash)
         {
-            std::string hashedPassword = hashPassword(password);
-            user.isOnline = true;
-            return hashedPassword == user.passwordHash;
+            // 验证成功，添加到在线用户列表
+            addUserToOnlineList(user);
+            return true;
         }
     }
 
     return false;
 }
 
-std::vector<std::string> UserManager::getOnlineUsers()
+void UserManager::addUserToOnlineList(const User &user)
 {
-    std::lock_guard<std::mutex> lock(usersMutex_);
-
-    std::vector<std::string> onlineUsers;
-    for (const auto &user : users_)
-    {
-        if (user.isOnline)
-        {
-            onlineUsers.push_back(user.userId);
-        }
-    }
-    return onlineUsers;
+    accountIndex_[user.account] = users_.size();
+    users_.push_back(user);
 }
 
-User UserManager::getUserByUserId(const std::string &userId)
+void UserManager::removeUserFromOnlineList(const std::string &account)
+{
+    auto it = accountIndex_.find(account);
+    if (it != accountIndex_.end())
+    {
+        size_t index = it->second;
+
+        if (index < users_.size())
+        {
+            accountIndex_.erase(it);
+
+            if (index != users_.size() - 1)
+            {
+                users_[index] = users_.back();
+                accountIndex_[users_[index].account] = index;
+            }
+            users_.pop_back();
+        }
+        else
+        {
+            accountIndex_.erase(it);
+        }
+    }
+}
+
+User UserManager::getUserByAccount(const std::string &account)
 {
     std::lock_guard<std::mutex> lock(usersMutex_);
 
-    for (const auto &user : users_)
+    // 首先在在线用户中查找
+    User *user = findUserByAccount(account);
+    if (user)
     {
-        if (user.userId == userId)
+        return *user;
+    }
+
+    // 如果不在线，从文件中加载
+    return loadUserFromFile(account);
+}
+
+bool UserManager::setUserStatus(const std::string &account, bool online)
+{
+    std::lock_guard<std::mutex> lock(usersMutex_);
+
+    if (online)
+    {
+        User user = loadUserFromFile(account);
+        if (!user.account.empty())
         {
-            return user;
+            // 检查是否已经在在线列表中
+            if (findUserByAccount(account) == nullptr)
+            {
+                addUserToOnlineList(user);
+            }
+            return true;
+        }
+    }
+    else
+    {
+        // 用户下线：从在线列表中移除
+        User *user = findUserByAccount(account);
+        if (user)
+        {
+            removeUserFromOnlineList(account);
+            return true;
         }
     }
 
-    return User{};
+    return false;
 }
 
 std::string UserManager::hashPassword(const std::string &password)
@@ -248,7 +389,7 @@ Poco::JSON::Object User::toJson() const
 {
     Poco::JSON::Object json;
     json.set("username", username);
-    json.set("user_id", userId);
+    json.set("account", account);
     json.set("password_hash", passwordHash);
     return json;
 }
@@ -258,7 +399,7 @@ User User::fromJson(const Poco::JSON::Object::Ptr &j)
 {
     User user;
     user.username = j->getValue<std::string>("username");
-    user.userId = j->getValue<std::string>("user_id");
+    user.account = j->getValue<std::string>("account");
     user.passwordHash = j->getValue<std::string>("password_hash");
     return user;
 }
