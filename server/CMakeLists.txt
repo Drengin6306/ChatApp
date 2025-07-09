@@ -20,7 +20,6 @@ target_link_libraries(chat_server
     chat_protocol
 )
 
-# 设置包含目录
 target_include_directories(chat_server PRIVATE 
     ${POCO_INCLUDE_DIR}
 )

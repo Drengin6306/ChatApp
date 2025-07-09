@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Message.h"
 #include <Poco/Net/TCPServerConnection.h>
 #include <Poco/Net/StreamSocket.h>
 #include <vector>
@@ -15,7 +16,7 @@ public:
 
     void addConnection(ChatConnection *connection);
     void removeConnection(ChatConnection *connection);
-    void broadcastMessage(const std::string &message, ChatConnection *sender = nullptr);
+    void broadcastMessage(const ChatMessage &message, ChatConnection *sender = nullptr);
 
     size_t getConnectionCount() const;
 

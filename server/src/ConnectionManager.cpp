@@ -30,7 +30,7 @@ void ConnectionManager::removeConnection(ChatConnection *connection)
     logger.information("Connection removed. Remaining connections: " + std::to_string(connections_.size()));
 }
 
-void ConnectionManager::broadcastMessage(const std::string &message, ChatConnection *sender)
+void ConnectionManager::broadcastMessage(const ChatMessage &message, ChatConnection *sender)
 {
     std::lock_guard<std::mutex> lock(connectionsMutex_);
 

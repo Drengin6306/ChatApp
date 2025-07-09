@@ -21,5 +21,3 @@ target_include_directories(chat_client
 )
 
 target_compile_features(chat_client PRIVATE cxx_std_17)
-    ${POCO_INCLUDE_DIR}
-)

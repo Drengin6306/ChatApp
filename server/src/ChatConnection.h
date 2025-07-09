@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Message.h"
 #include <Poco/Net/TCPServerConnection.h>
 #include <Poco/Net/StreamSocket.h>
 #include <string>
@@ -17,8 +18,12 @@ public:
 
 private:
     std::string clientAddress_;
+    std::string account_;
     bool isConnected_;
+    bool isAuthenticated_;
 
-    void handleClientMessage(const std::string &message);
+    void handleChatMessage(const ChatMessage &chatMessage);
+    void handleLoginRequest(const LoginRequest &loginRequest);
+    void handleRegisterRequest(const RegisterRequest &registerRequest);
     std::string formatMessage(const std::string &content) const;
 };
