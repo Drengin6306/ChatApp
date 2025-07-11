@@ -12,7 +12,10 @@ public:
     virtual ~ChatConnection();
 
     void run() override;
-    void sendMessage(const std::string &message);
+    void sendMessage(const Message &message);
+    bool isConnected() const { return isConnected_; }
+    bool isAuthenticated() const { return isAuthenticated_; }
+    void setDisconnected() { isConnected_ = false; }
 
     std::string getClientAddress() const;
 
@@ -25,5 +28,5 @@ private:
     void handleChatMessage(const ChatMessage &chatMessage);
     void handleLoginRequest(const LoginRequest &loginRequest);
     void handleRegisterRequest(const RegisterRequest &registerRequest);
-    std::string formatMessage(const std::string &content) const;
+    std::unique_ptr<Message> receiveMessage();
 };

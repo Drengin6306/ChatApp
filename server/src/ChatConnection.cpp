@@ -38,16 +38,7 @@ void ChatConnection::run()
         while (!isAuthenticated_)
         {
             // 处理登录请求
-            char buffer[1024];
-            int bytesReceived = socket().receiveBytes(buffer, sizeof(buffer) - 1);
-            if (bytesReceived <= 0)
-            {
-                break; // 连接已关闭
-            }
-
-            buffer[bytesReceived] = '\0';
-            std::string requestData(buffer);
-            auto message = Message::parseMessage(requestData);
+            auto message = receiveMessage();
             if (message)
             {
                 if (message->getType() == MessageType::LOGIN_REQUEST)
@@ -68,49 +59,23 @@ void ChatConnection::run()
                 logger.error("Failed to parse message from " + clientAddress_);
             }
         }
-
-        // 读取客户端消息
-        char buffer[1024];
-        std::string messageBuffer;
-
-        while (isConnected_)
+        if (isAuthenticated_)
         {
-            int bytesReceived = socket().receiveBytes(buffer, sizeof(buffer) - 1);
-            if (bytesReceived <= 0)
+            connectionManager.authenticateConnection(this, account_);
+        }
+
+        // 认证成功后，处理聊天消息
+        while (isConnected_ && isAuthenticated_)
+        {
+            auto message = receiveMessage();
+            if (message)
             {
-                break; // 连接已关闭
+                // 处理聊天消息
+                handleChatMessage(static_cast<ChatMessage &>(*message));
             }
-
-            buffer[bytesReceived] = '\0';
-            messageBuffer += buffer;
-
-            // 处理完整的消息行
-            size_t pos;
-            while ((pos = messageBuffer.find('\n')) != std::string::npos)
+            else
             {
-                std::string line = messageBuffer.substr(0, pos);
-                messageBuffer.erase(0, pos + 1);
-
-                // 移除回车符
-                if (!line.empty() && line.back() == '\r')
-                {
-                    line.pop_back();
-                }
-
-                if (line.empty())
-                    continue;
-
-                logger.information("Received from " + clientAddress_ + ": " + line); // 处理退出命令
-                if (line == "quit" || line == "QUIT")
-                {
-                    isConnected_ = false;
-                    break;
-                }
-            }
-
-            if (!isConnected_)
-            {
-                break;
+                logger.error("Failed to parse message from " + clientAddress_);
             }
         }
     }
@@ -126,25 +91,116 @@ void ChatConnection::run()
     // 清理连接
     isConnected_ = false;
     connectionManager.removeConnection(this);
+    auto &logger = Poco::Logger::get("ChatConnection");
+    logger.information("Connection " + clientAddress_ + " closed.");
 }
 
-void ChatConnection::sendMessage(const std::string &message)
+// 接受消息并返回一个 Message 对象
+std::unique_ptr<Message> ChatConnection::receiveMessage()
+{
+    auto &logger = Poco::Logger::get("ChatConnection");
+    if (!isConnected_)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        // 接收4字节的消息长度
+        uint32_t messageLength = 0;
+        int bytesRead = 0;
+
+        // 确保读取完整的4字节长度
+        while (bytesRead < 4)
+        {
+            int received = socket().receiveBytes(
+                reinterpret_cast<char *>(&messageLength) + bytesRead,
+                4 - bytesRead);
+
+            if (received <= 0)
+            {
+                if (bytesRead == 0 && received == 0)
+                {
+                    return nullptr;
+                }
+                throw std::runtime_error("连接中断，无法接收完整的消息长度");
+            }
+
+            bytesRead += received;
+        }
+
+        messageLength = ntohl(messageLength);
+
+        if (messageLength == 0)
+        {
+            return nullptr; // 空消息
+        }
+
+        if (messageLength > 10 * 1024 * 1024) // 10MB上限
+        {
+            throw std::runtime_error("消息过大: " + std::to_string(messageLength) + " 字节");
+        }
+
+        std::vector<char> buffer(messageLength + 1);
+        bytesRead = 0;
+
+        while (bytesRead < messageLength)
+        {
+            int received = socket().receiveBytes(
+                buffer.data() + bytesRead,
+                messageLength - bytesRead);
+
+            if (received <= 0)
+            {
+                throw std::runtime_error("连接中断，无法接收完整的消息");
+            }
+
+            bytesRead += received;
+        }
+        buffer[messageLength] = '\0';
+        std::string jsonData(buffer.data(), messageLength);
+
+        logger.debug("接收到JSON (" + std::to_string(messageLength) + " 字节): " + jsonData);
+        return Message::parseMessage(jsonData);
+    }
+    catch (const std::exception &e)
+    {
+        logger.error("接收消息失败: " + std::string(e.what()));
+        isConnected_ = false;
+        return nullptr;
+    }
+}
+
+void ChatConnection::sendMessage(const Message &message)
 {
     if (!isConnected_)
         return;
 
     try
     {
-        int sent = socket().sendBytes(message.c_str(), message.length());
-        if (sent < 0)
+        std::string jsonData = message.serialize();
+        auto &logger = Poco::Logger::get("ChatConnection");
+
+        logger.debug("发送JSON (" + std::to_string(jsonData.length()) + " 字节): " + jsonData);
+
+        uint32_t messageLength = htonl(static_cast<uint32_t>(jsonData.length()));
+
+        int sent = socket().sendBytes(&messageLength, sizeof(messageLength));
+        if (sent != sizeof(messageLength))
         {
-            throw std::runtime_error("Failed to send message");
+            throw std::runtime_error("发送消息长度失败");
+        }
+
+        sent = socket().sendBytes(jsonData.c_str(), jsonData.length());
+        if (sent != jsonData.length())
+        {
+            throw std::runtime_error("发送消息内容不完整");
         }
     }
     catch (const std::exception &e)
     {
         auto &logger = Poco::Logger::get("ChatConnection");
-        logger.error("Failed to send message to " + clientAddress_ + ": " + e.what());
+        logger.error("发送消息失败: " + std::string(e.what()));
         isConnected_ = false;
     }
 }
@@ -157,44 +213,40 @@ std::string ChatConnection::getClientAddress() const
 void ChatConnection::handleLoginRequest(const LoginRequest &loginRequest)
 {
     auto &logger = Poco::Logger::get("ChatConnection");
-    std::string responseData;
+    auto response = std::make_unique<LoginResponse>();
 
     account_ = loginRequest.getAccount();
     auto &userManager = UserManager::getInstance();
     if (userManager.authenticateUser(account_, loginRequest.getPassword()))
     {
-        auto response = new LoginResponse();
         if (response)
         {
             response->setStatus(MessageStatus::SUCCESS);
             response->setMessage("登录成功");
         }
-        responseData = response->serialize();
         isAuthenticated_ = true;
         logger.information("User " + account_ + " logged in successfully.");
     }
     else
     {
         logger.error("Authentication failed for user " + account_);
-        auto response = new LoginResponse();
         if (response)
         {
             response->setStatus(MessageStatus::FAILED);
             response->setMessage("登录失败");
         }
-        responseData = response->serialize();
     }
     // 发送认证结果
-    if (!responseData.empty())
+    if (response)
     {
-        sendMessage(responseData);
+        sendMessage(*response);
     }
 }
 
 void ChatConnection::handleRegisterRequest(const RegisterRequest &registerRequest)
 {
     auto &logger = Poco::Logger::get("ChatConnection");
-    std::string responseData;
+    auto response = std::make_unique<RegisterResponse>();
 
     std::string username = registerRequest.getUsername();
     std::string password = registerRequest.getPassword();
@@ -202,30 +254,26 @@ void ChatConnection::handleRegisterRequest(const RegisterRequest &registerReques
     account_ = userManager.registerUser(username, password);
     if (!account_.empty())
     {
-        auto response = new RegisterResponse();
         if (response)
         {
             response->setStatus(MessageStatus::SUCCESS);
             response->setMessage("注册成功，您的账号是: " + account_);
         }
-        responseData = response->serialize();
         isAuthenticated_ = true;
         logger.information("User " + account_ + " registered successfully.");
     }
     else
     {
-        auto response = new RegisterResponse();
         if (response)
         {
             response->setStatus(MessageStatus::FAILED);
             response->setMessage("注册失败");
         }
-        responseData = response->serialize();
     }
     // 发送注册结果
-    if (!responseData.empty())
+    if (response)
     {
-        sendMessage(responseData);
+        sendMessage(*response);
     }
 }
 
@@ -235,28 +283,18 @@ void ChatConnection::handleChatMessage(const ChatMessage &chatMessage)
 
     if (chatMessage.isPrivateMessage() && chatMessage.getType() == MessageType::PRIVATE_MESSAGE)
     {
+        auto &connectionManager = ConnectionManager::getInstance();
+        connectionManager.sendMessageToUser(chatMessage);
+        logger.information("Private message from " + chatMessage.getSender() + " to " + chatMessage.getReceiver() + ": " + chatMessage.getContent());
     }
     else if (chatMessage.isBroadcastMessage() && chatMessage.getType() == MessageType::BROADCAST_MESSAGE)
     {
         auto &connectionManager = ConnectionManager::getInstance();
-        std::string formattedMessage = formatMessage(chatMessage.getContent());
-        ChatMessage broadcastMessage = ChatMessage(chatMessage.getSender(), formattedMessage);
-        broadcastMessage.setReceiver("");
-        connectionManager.broadcastMessage(broadcastMessage, this);
+        connectionManager.broadcastMessage(chatMessage, this);
         logger.information("Broadcast message from " + chatMessage.getSender() + "[" + clientAddress_ + "]" + ": " + chatMessage.getContent());
     }
     else
     {
         logger.warning("Received unsupported chat message type from " + clientAddress_);
     }
-}
-
-std::string ChatConnection::formatMessage(const std::string &content) const
-{
-    Poco::LocalDateTime now;
-    std::string timestamp = Poco::DateTimeFormatter::format(now, "%H:%M");
-
-    std::ostringstream oss;
-    oss << "[" << timestamp << "] " << UserManager::getInstance().getUserByAccount(account_).username + "(" + clientAddress_ + ")" << ": " << content;
-    return oss.str();
 }

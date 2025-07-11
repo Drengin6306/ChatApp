@@ -4,7 +4,7 @@
 #include <Poco/Net/TCPServerConnection.h>
 #include <Poco/Net/StreamSocket.h>
 #include <vector>
-#include <mutex>
+#include <shared_mutex>
 #include <string>
 
 class ChatConnection;
@@ -15,8 +15,10 @@ public:
     static ConnectionManager &getInstance();
 
     void addConnection(ChatConnection *connection);
+    void authenticateConnection(ChatConnection *connection, const std::string &account);
     void removeConnection(ChatConnection *connection);
     void broadcastMessage(const ChatMessage &message, ChatConnection *sender = nullptr);
+    void sendMessageToUser(const ChatMessage &message);
 
     size_t getConnectionCount() const;
 
@@ -26,6 +28,7 @@ private:
     ConnectionManager(const ConnectionManager &) = delete;
     ConnectionManager &operator=(const ConnectionManager &) = delete;
 
-    mutable std::mutex connectionsMutex_;
-    mutable std::vector<ChatConnection *> connections_;
+    mutable std::shared_mutex connectionsMutex_;
+    mutable std::unordered_map<std::string, ChatConnection *> connections_;
+    mutable std::vector<ChatConnection *> unauthenticatedConnections_;
 };
