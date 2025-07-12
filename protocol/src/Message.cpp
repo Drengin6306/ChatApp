@@ -257,8 +257,8 @@ LoginResponse::LoginResponse() : Message(MessageType::LOGIN_RESPONSE), status_(M
 {
 }
 
-LoginResponse::LoginResponse(MessageStatus status, const std::string &message)
-    : Message(MessageType::LOGIN_RESPONSE), status_(status), message_(message)
+LoginResponse::LoginResponse(MessageStatus status, const std::string &account, const std::string &message)
+    : Message(MessageType::LOGIN_RESPONSE), status_(status), account_(account), message_(message)
 {
 }
 

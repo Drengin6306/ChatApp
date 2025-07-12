@@ -117,7 +117,7 @@ class LoginResponse : public Message
 {
 public:
     LoginResponse();
-    LoginResponse(MessageStatus status, const std::string &message = "");
+    LoginResponse(MessageStatus status, const std::string &account, const std::string &message = "");
 
     std::string serialize() const override;
     bool deserialize(const std::string &data) override;
@@ -134,6 +134,7 @@ protected:
 
 private:
     MessageStatus status_;
+    std::string account_;
     std::string message_;
 };
 
