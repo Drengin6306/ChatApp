@@ -91,7 +91,6 @@ void ChatConnection::run()
     // 清理连接
     isConnected_ = false;
     connectionManager.removeConnection(this);
-    auto &logger = Poco::Logger::get("ChatConnection");
     logger.information("Connection " + clientAddress_ + " closed.");
 }
 

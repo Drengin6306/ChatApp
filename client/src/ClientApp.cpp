@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <limits>
 
 ClientApp::ClientApp() : connected_(false), authenticated_(false)
 {
@@ -12,13 +13,12 @@ ClientApp::ClientApp() : connected_(false), authenticated_(false)
 
 ClientApp::~ClientApp()
 {
-
     disconnect();
 }
 
 int ClientApp::run(const std::string &host, int port)
 {
-    std::cout << "=== 聊天室客户端 ===" << std::endl;
+    std::cout << "欢迎来到聊天室！" << std::endl;
     std::cout << "正在连接到服务器 " << host << ":" << port << "..." << std::endl;
 
     try
@@ -77,65 +77,135 @@ void ClientApp::handleUserInput()
         {
             break;
         }
-
-        if (input.empty())
+        else if (input == "help" || input == "HELP")
         {
-            continue;
+            showHelp();
         }
-
-        try
+        else if (input.substr(0, 5) == "login")
         {
-            // 添加换行符并发送
-            std::string message = input + "\n";
-            int sent = socket_->sendBytes(message.c_str(), message.length());
-            if (sent < 0)
+            std::string account, password;
+            std::cout << "请输入账号: ";
+            std::cin >> account;
+            std::cout << "请输入密码: ";
+            std::cin >> password;
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            if (account.empty() || password.empty())
             {
-                std::cerr << "发送消息失败" << std::endl;
-                break;
+                std::cerr << "账号和密码不能为空" << std::endl;
+                continue;
+            }
+            login(account, password);
+        }
+        else if (input.substr(0, 8) == "register")
+        {
+            std::string username, password;
+            std::cout << "请输入用户名: ";
+            std::cin >> username;
+            std::cout << "请输入密码: ";
+            std::cin >> password;
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+            if (username.empty() || password.empty())
+            {
+                std::cerr << "用户名和密码不能为空" << std::endl;
+                continue;
+            }
+            registerUser(username, password);
+        }
+        else if (input.substr(0, 6) == "logout")
+        {
+            logout();
+        }
+        else if (input.substr(0, 2) == "\\b")
+        {
+            if (!authenticated_)
+            {
+                std::cerr << "请先登录或注册账号" << std::endl;
+                continue;
+            }
+            // 广播消息
+            std::string content = input.substr(2);
+            size_t firstNonSpace = content.find_first_not_of(" \t");
+            if (firstNonSpace != std::string::npos)
+            {
+                content = content.substr(firstNonSpace);
+            }
+            else
+            {
+                std::cerr << "消息不能为空" << std::endl;
+                continue;
+            }
+            sendMessage(ChatMessage(this->account_, content));
+        }
+        else if (input.substr(0, 2) == "\\p")
+        {
+            if (!authenticated_)
+            {
+                std::cerr << "请先登录或注册账号" << std::endl;
+                continue;
+            }
+            // 私聊消息
+            std::string command = input.substr(2);
+
+            size_t firstNonSpace = command.find_first_not_of(" \t");
+            if (firstNonSpace != std::string::npos)
+            {
+                command = command.substr(firstNonSpace);
+
+                size_t spacePos = command.find(' ');
+                if (spacePos != std::string::npos)
+                {
+                    std::string receiver = command.substr(0, spacePos);
+
+                    size_t messageStart = command.find_first_not_of(" \t", spacePos + 1);
+                    if (messageStart != std::string::npos)
+                    {
+                        std::string messageContent = command.substr(messageStart);
+                        sendMessage(ChatMessage(this->account_, receiver, messageContent));
+                    }
+                    else
+                    {
+                        std::cerr << "消息内容不能为空" << std::endl;
+                    }
+                }
+                else
+                {
+                    std::cerr << "私聊格式错误，请使用 \\p <账号> <消息>" << std::endl;
+                }
+            }
+            else
+            {
+                std::cerr << "私聊格式错误，请使用 \\p <账号> <消息>" << std::endl;
             }
         }
-        catch (const std::exception &e)
+        else
         {
-            std::cerr << "发送消息失败: " << e.what() << std::endl;
-            break;
+            std::cout << "未知命令: " << input << std::endl;
+            std::cout << "请输入 'help' 查看可用命令" << std::endl;
         }
     }
 }
 
 void ClientApp::disconnect()
 {
-    if (!connected_)
-        return;
-
-    connected_ = false;
+    if (receiverThread_ && receiverThread_->isRunning())
+    {
+        receiverThread_->join();
+    }
 
     if (socket_)
     {
         try
         {
-            // 发送退出消息
-            std::string quitMessage = "quit\n";
-            socket_->sendBytes(quitMessage.c_str(), quitMessage.length());
+            socket_->close();
         }
-        catch (...)
+        catch (const Poco::Net::NetException &e)
         {
-            // 忽略发送退出消息时的错误
+            std::cerr << "关闭连接时出错: " << e.displayText() << std::endl;
         }
-
-        socket_->close();
     }
 
-    if (receiverThread_)
-    {
-        try
-        {
-            receiverThread_->join();
-        }
-        catch (...)
-        {
-            // 忽略线程结束时的错误
-        }
-    }
+    connected_ = false;
 }
 
 void ClientApp::sendMessage(const Message &message)
@@ -175,13 +245,33 @@ void ClientApp::login(const std::string &account, const std::string &password)
     sendMessage(loginRequest);
 }
 
+void ClientApp::registerUser(const std::string &username, const std::string &password)
+{
+    RegisterRequest registerRequest(username, password);
+    sendMessage(registerRequest);
+}
+
+void ClientApp::logout()
+{
+    if (!authenticated_)
+    {
+        std::cerr << "您尚未登录" << std::endl;
+        return;
+    }
+
+    authenticated_ = false;
+    account_.clear();
+    std::cout << "已登出" << std::endl;
+}
+
 void ClientApp::showHelp()
 {
     std::cout << "\n可用命令:\n";
     std::cout << "  login     - 登录系统\n";
     std::cout << "  register  - 注册新账号\n";
     std::cout << "  logout    - 登出系统\n";
+    std::cout << "  \\b <message>        - 发送广播消息\n";
+    std::cout << "  \\p <account> <message> - 发送私聊消息\n";
     std::cout << "  help      - 显示帮助信息\n";
     std::cout << "  quit/exit - 退出程序\n";
-    std::cout << "  <其他文本> - 发送聊天消息\n\n";
 }

@@ -25,13 +25,14 @@ private:
     void connectToServer(const std::string &host, int port);
     void login(const std::string &account, const std::string &password);
     void logout();
-    void registerUser();
+    void registerUser(const std::string &username, const std::string &password);
     void showHelp();
     void sendMessage(const Message &message);
     void startMessageReceiver();
     void handleUserInput();
     void disconnect();
 
+    std::unordered_map<std::string, std::string> userMap_;
     std::shared_ptr<Poco::Net::StreamSocket> socket_;
     std::unique_ptr<Poco::Thread> receiverThread_;
     std::string account_;
