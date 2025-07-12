@@ -5,7 +5,6 @@
 #include <iostream>
 #include <string>
 #include <memory>
-#include <limits>
 
 ClientApp::ClientApp() : connected_(false), authenticated_(false)
 {
@@ -85,10 +84,9 @@ void ClientApp::handleUserInput()
         {
             std::string account, password;
             std::cout << "请输入账号: ";
-            std::cin >> account;
+            std::getline(std::cin, account);
             std::cout << "请输入密码: ";
-            std::cin >> password;
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::getline(std::cin, password);
             if (account.empty() || password.empty())
             {
                 std::cerr << "账号和密码不能为空" << std::endl;
@@ -100,10 +98,9 @@ void ClientApp::handleUserInput()
         {
             std::string username, password;
             std::cout << "请输入用户名: ";
-            std::cin >> username;
+            std::getline(std::cin, username);
             std::cout << "请输入密码: ";
-            std::cin >> password;
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::getline(std::cin, password);
 
             if (username.empty() || password.empty())
             {
@@ -118,71 +115,83 @@ void ClientApp::handleUserInput()
         }
         else if (input.substr(0, 2) == "\\b")
         {
-            if (!authenticated_)
-            {
-                std::cerr << "请先登录或注册账号" << std::endl;
-                continue;
-            }
-            // 广播消息
-            std::string content = input.substr(2);
-            size_t firstNonSpace = content.find_first_not_of(" \t");
-            if (firstNonSpace != std::string::npos)
-            {
-                content = content.substr(firstNonSpace);
-            }
-            else
-            {
-                std::cerr << "消息不能为空" << std::endl;
-                continue;
-            }
-            sendMessage(ChatMessage(this->account_, content));
+            sendBroadcastMessage(input);
+            continue;
         }
         else if (input.substr(0, 2) == "\\p")
         {
-            if (!authenticated_)
-            {
-                std::cerr << "请先登录或注册账号" << std::endl;
-                continue;
-            }
-            // 私聊消息
-            std::string command = input.substr(2);
-
-            size_t firstNonSpace = command.find_first_not_of(" \t");
-            if (firstNonSpace != std::string::npos)
-            {
-                command = command.substr(firstNonSpace);
-
-                size_t spacePos = command.find(' ');
-                if (spacePos != std::string::npos)
-                {
-                    std::string receiver = command.substr(0, spacePos);
-
-                    size_t messageStart = command.find_first_not_of(" \t", spacePos + 1);
-                    if (messageStart != std::string::npos)
-                    {
-                        std::string messageContent = command.substr(messageStart);
-                        sendMessage(ChatMessage(this->account_, receiver, messageContent));
-                    }
-                    else
-                    {
-                        std::cerr << "消息内容不能为空" << std::endl;
-                    }
-                }
-                else
-                {
-                    std::cerr << "私聊格式错误，请使用 \\p <账号> <消息>" << std::endl;
-                }
-            }
-            else
-            {
-                std::cerr << "私聊格式错误，请使用 \\p <账号> <消息>" << std::endl;
-            }
+            sendPrivateMessage(input);
+            continue;
         }
         else
         {
             std::cout << "未知命令: " << input << std::endl;
             std::cout << "请输入 'help' 查看可用命令" << std::endl;
         }
+    }
+}
+
+void ClientApp::sendBroadcastMessage(const std::string &input)
+{
+    if (!authenticated_)
+    {
+        std::cerr << "请先登录或注册账号" << std::endl;
+        return;
+    }
+    // 广播消息
+    std::string content = input.substr(2);
+    size_t firstNonSpace = content.find_first_not_of(" \t");
+    if (firstNonSpace != std::string::npos)
+    {
+        content = content.substr(firstNonSpace);
+    }
+    else
+    {
+        std::cerr << "消息不能为空" << std::endl;
+        return;
+    }
+    sendMessage(ChatMessage(this->account_, content));
+}
+
+void ClientApp::sendPrivateMessage(const std::string &input)
+{
+    if (!authenticated_)
+    {
+        std::cerr << "请先登录或注册账号" << std::endl;
+        return;
+    }
+    // 私聊消息
+    std::string command = input.substr(2);
+
+    size_t firstNonSpace = command.find_first_not_of(" \t");
+    if (firstNonSpace != std::string::npos)
+    {
+        command = command.substr(firstNonSpace);
+
+        size_t spacePos = command.find(' ');
+        if (spacePos != std::string::npos)
+        {
+            std::string receiver = command.substr(0, spacePos);
+
+            size_t messageStart = command.find_first_not_of(" \t", spacePos + 1);
+            if (messageStart != std::string::npos)
+            {
+                std::string messageContent = command.substr(messageStart);
+                sendMessage(ChatMessage(this->account_, receiver, messageContent));
+            }
+            else
+            {
+                std::cerr << "消息内容不能为空" << std::endl;
+            }
+        }
+        else
+        {
+            std::cerr << "私聊格式错误，请使用 \\p <账号> <消息>" << std::endl;
+        }
+    }
+    else
+    {
+        std::cerr << "私聊格式错误，请使用 \\p <账号> <消息>" << std::endl;
     }
 }
 

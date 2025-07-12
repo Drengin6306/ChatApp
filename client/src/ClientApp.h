@@ -26,6 +26,8 @@ private:
     void login(const std::string &account, const std::string &password);
     void logout();
     void registerUser(const std::string &username, const std::string &password);
+    void sendBroadcastMessage(const std::string &input);
+    void sendPrivateMessage(const std::string &input);
     void showHelp();
     void sendMessage(const Message &message);
     void startMessageReceiver();
