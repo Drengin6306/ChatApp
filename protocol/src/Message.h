@@ -123,9 +123,11 @@ public:
     bool deserialize(const std::string &data) override;
 
     void setStatus(MessageStatus status) { status_ = status; }
+    void setAccount(const std::string &account) { account_ = account; }
     void setMessage(const std::string &message) { message_ = message; }
 
     MessageStatus getStatus() const { return status_; }
+    const std::string &getAccount() const { return account_; }
     const std::string &getMessage() const { return message_; }
 
 protected:

@@ -79,6 +79,7 @@ void MessageHandler::handleLoginResponse(const LoginResponse &response)
         if (response.getStatus() == MessageStatus::SUCCESS)
         {
             clientApp->setAuthenticated(true);
+            clientApp->setAccount(response.getAccount());
             std::cout << response.getMessage() << std::endl;
         }
         else

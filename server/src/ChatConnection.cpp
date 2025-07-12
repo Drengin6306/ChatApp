@@ -221,6 +221,7 @@ void ChatConnection::handleLoginRequest(const LoginRequest &loginRequest)
         if (response)
         {
             response->setStatus(MessageStatus::SUCCESS);
+            response->setAccount(account_);
             response->setMessage("登录成功");
         }
         isAuthenticated_ = true;
