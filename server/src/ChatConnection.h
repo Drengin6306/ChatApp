@@ -13,6 +13,7 @@ public:
 
     void run() override;
     void sendMessage(const Message &message);
+    std::string getAccount() const { return account_; }
     bool isConnected() const { return isConnected_; }
     bool isAuthenticated() const { return isAuthenticated_; }
     void setDisconnected() { isConnected_ = false; }
@@ -28,5 +29,6 @@ private:
     void handleChatMessage(const ChatMessage &chatMessage);
     void handleLoginRequest(const LoginRequest &loginRequest);
     void handleRegisterRequest(const RegisterRequest &registerRequest);
+    void handleUserStatusUpdate(const UserStatusUpdate &userStatusUpdate);
     std::unique_ptr<Message> receiveMessage();
 };

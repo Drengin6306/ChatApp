@@ -34,48 +34,44 @@ void ChatConnection::run()
     {
         connectionManager.addConnection(this);
 
-        // 用户认证
-        while (!isAuthenticated_)
+        while (isConnected_)
         {
-            // 处理登录请求
             auto message = receiveMessage();
-            if (message)
+            if (!message)
             {
-                if (message->getType() == MessageType::LOGIN_REQUEST)
-                {
-                    handleLoginRequest(static_cast<LoginRequest &>(*message));
-                }
-                else if (message->getType() == MessageType::REGISTER_REQUEST)
-                {
-                    handleRegisterRequest(static_cast<RegisterRequest &>(*message));
-                }
-                else
-                {
-                    logger.error("Received unexpected message type: " + std::to_string(static_cast<int>(message->getType())));
-                }
+                logger.information("Connection " + clientAddress_ + " closed by client.");
+                break;
             }
-            else
-            {
-                logger.error("Failed to parse message from " + clientAddress_);
-            }
-        }
-        if (isAuthenticated_)
-        {
-            connectionManager.authenticateConnection(this, account_);
-        }
 
-        // 认证成功后，处理聊天消息
-        while (isConnected_ && isAuthenticated_)
-        {
-            auto message = receiveMessage();
-            if (message)
+            // 处理不同类型的消息
+            switch (message->getType())
             {
-                // 处理聊天消息
+            case MessageType::LOGIN_REQUEST:
+                if (isAuthenticated_)
+                {
+                    logger.warning("Received login request from already authenticated user: " + account_);
+                    continue;
+                }
+                handleLoginRequest(static_cast<LoginRequest &>(*message));
+                break;
+            case MessageType::REGISTER_REQUEST:
+                if (isAuthenticated_)
+                {
+                    logger.warning("Received register request from already authenticated user: " + account_);
+                    continue;
+                }
+                handleRegisterRequest(static_cast<RegisterRequest &>(*message));
+                break;
+            case MessageType::BROADCAST_MESSAGE:
+            case MessageType::PRIVATE_MESSAGE:
                 handleChatMessage(static_cast<ChatMessage &>(*message));
-            }
-            else
-            {
-                logger.error("Failed to parse message from " + clientAddress_);
+                break;
+            case MessageType::USER_STATUS_UPDATE:
+                handleUserStatusUpdate(static_cast<UserStatusUpdate &>(*message));
+                break;
+            default:
+                logger.warning("Unknown message type received: " + std::to_string(static_cast<int>(message->getType())));
+                break;
             }
         }
     }
@@ -295,5 +291,29 @@ void ChatConnection::handleChatMessage(const ChatMessage &chatMessage)
     else
     {
         logger.warning("Received unsupported chat message type from " + clientAddress_);
+    }
+}
+
+void ChatConnection::handleUserStatusUpdate(const UserStatusUpdate &userStatusUpdate)
+{
+    auto &logger = Poco::Logger::get("ChatConnection");
+    auto &connectionManager = ConnectionManager::getInstance();
+
+    if (userStatusUpdate.getAction() == "leave")
+    {
+        logger.information("User " + account_ + " has left the chat.");
+        isConnected_ = false;
+        connectionManager.removeConnection(this);
+    }
+    else if (userStatusUpdate.getAction() == "logout")
+    {
+        logger.information("User " + account_ + " has logged out.");
+        connectionManager.unauthenticateConnection(this);
+        isAuthenticated_ = false;
+        account_.clear();
+    }
+    else
+    {
+        logger.warning("Received unsupported user status update: " + userStatusUpdate.getAction());
     }
 }

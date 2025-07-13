@@ -22,6 +22,7 @@ void ClientApp::connectToServer(const std::string &host, int port)
     Poco::Net::SocketAddress address(host, port);
     socket_->connect(address);
 
+    socket_->setReceiveTimeout(Poco::Timespan(1, 0));
     connected_ = true;
     std::cout << "连接成功！" << std::endl;
 }
@@ -40,11 +41,12 @@ void ClientApp::startMessageReceiver()
 void ClientApp::handleUserInput()
 {
     std::string input;
-
     while (connected_ && std::getline(std::cin, input))
     {
         if (input == "quit" || input == "QUIT")
         {
+            std::cout << "正在退出..." << std::endl;
+            disconnect();
             break;
         }
         else if (input == "help" || input == "HELP")
@@ -94,10 +96,14 @@ void ClientApp::handleUserInput()
             sendPrivateMessage(input);
             continue;
         }
+        else if (input.empty())
+        {
+            continue;
+        }
         else
         {
-            std::cout << "未知命令: " << input << std::endl;
-            std::cout << "请输入 'help' 查看可用命令" << std::endl;
+            std::cerr << "未知命令，请输入 help 查看可用命令" << std::endl;
+            continue;
         }
     }
 }
@@ -168,6 +174,20 @@ void ClientApp::sendPrivateMessage(const std::string &input)
 
 void ClientApp::disconnect()
 {
+    if (socket_ && socket_->impl()->initialized())
+    {
+        try
+        {
+            std::string jsonData = UserStatusUpdate("leave").serialize();
+            uint32_t messageLength = htonl(static_cast<uint32_t>(jsonData.length()));
+            socket_->sendBytes(&messageLength, sizeof(messageLength));
+            socket_->sendBytes(jsonData.c_str(), jsonData.length());
+        }
+        catch (const std::exception &e)
+        {
+        }
+    }
+    MessageHandler::getInstance().stop();
     if (receiverThread_ && receiverThread_->isRunning())
     {
         receiverThread_->join();
@@ -238,6 +258,8 @@ void ClientApp::logout()
         std::cerr << "您尚未登录" << std::endl;
         return;
     }
+    UserStatusUpdate logoutMessage = UserStatusUpdate("logout");
+    sendMessage(logoutMessage);
 
     authenticated_ = false;
     account_.clear();
@@ -246,7 +268,7 @@ void ClientApp::logout()
 
 void ClientApp::showHelp()
 {
-    std::cout << "\n可用命令:\n";
+    std::cout << "可用命令:\n";
     std::cout << "  login     - 登录系统\n";
     std::cout << "  register  - 注册新账号\n";
     std::cout << "  logout    - 登出系统\n";

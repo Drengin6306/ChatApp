@@ -456,12 +456,12 @@ bool UserListResponse::fromJSON(const Poco::JSON::Object::Ptr &json)
 }
 
 // UserStatusUpdate实现
-UserStatusUpdate::UserStatusUpdate() : Message(MessageType::USER_STATUS_UPDATE), username_(""), action_("")
+UserStatusUpdate::UserStatusUpdate() : Message(MessageType::USER_STATUS_UPDATE), action_("")
 {
 }
 
-UserStatusUpdate::UserStatusUpdate(const std::string &username, const std::string &action)
-    : Message(MessageType::USER_STATUS_UPDATE), username_(username), action_(action)
+UserStatusUpdate::UserStatusUpdate(const std::string &action)
+    : Message(MessageType::USER_STATUS_UPDATE), action_(action)
 {
 }
 
@@ -491,7 +491,6 @@ bool UserStatusUpdate::deserialize(const std::string &data)
 Poco::JSON::Object::Ptr UserStatusUpdate::toJSON() const
 {
     auto json = Message::toJSON();
-    json->set("username", username_);
     json->set("action", action_);
     return json;
 }
@@ -505,7 +504,6 @@ bool UserStatusUpdate::fromJSON(const Poco::JSON::Object::Ptr &json)
 
     try
     {
-        username_ = json->getValue<std::string>("username");
         action_ = json->getValue<std::string>("action");
         return true;
     }

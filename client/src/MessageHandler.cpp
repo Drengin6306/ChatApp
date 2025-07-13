@@ -33,7 +33,9 @@ void MessageHandler::run()
             auto message = receiveMessage();
             if (!message)
             {
-                break; // 连接中断或接收失败
+                if (!running_)
+                    break;
+                continue;
             }
             MessageType type = message->getType();
             switch (type)
@@ -61,6 +63,7 @@ void MessageHandler::run()
             {
                 clientApp->setConnected(false);
             }
+            running_ = false;
             break;
         }
     }
@@ -205,9 +208,14 @@ std::unique_ptr<Message> MessageHandler::receiveMessage()
 
         return Message::parseMessage(jsonData);
     }
+    catch (const Poco::TimeoutException &e)
+    {
+        return nullptr;
+    }
     catch (const std::exception &e)
     {
         std::cerr << e.what() << std::endl;
+        running_ = false;
         clientApp->setConnected(false);
         return nullptr;
     }

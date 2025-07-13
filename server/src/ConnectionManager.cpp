@@ -99,6 +99,22 @@ void ConnectionManager::removeConnection(ChatConnection *connection)
     }
 }
 
+void ConnectionManager::unauthenticateConnection(ChatConnection *connection)
+{
+    {
+        std::unique_lock<std::shared_mutex> lock(connectionsMutex_);
+        auto it = connections_.find(connection->getAccount());
+        if (it != connections_.end())
+        {
+            connections_.erase(it);
+            unauthenticatedConnections_.push_back(connection);
+        }
+    }
+
+    auto &logger = Poco::Logger::get("ConnectionManager");
+    logger.information("Connection unauthenticated for user: " + connection->getClientAddress() + " Total connections: " + std::to_string(getConnectionCount()));
+}
+
 void ConnectionManager::broadcastMessage(const ChatMessage &message, ChatConnection *sender)
 {
     std::vector<ChatConnection *> targetConnections;

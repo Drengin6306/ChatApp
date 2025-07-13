@@ -199,15 +199,13 @@ class UserStatusUpdate : public Message
 {
 public:
     UserStatusUpdate();
-    UserStatusUpdate(const std::string &username, const std::string &action);
+    UserStatusUpdate(const std::string &action);
 
     std::string serialize() const override;
     bool deserialize(const std::string &data) override;
 
-    void setUsername(const std::string &username) { username_ = username; }
     void setAction(const std::string &action) { action_ = action; }
 
-    const std::string &getUsername() const { return username_; }
     const std::string &getAction() const { return action_; }
 
 protected:
@@ -215,8 +213,7 @@ protected:
     bool fromJSON(const Poco::JSON::Object::Ptr &json) override;
 
 private:
-    std::string username_;
-    std::string action_; // "join", "leave"
+    std::string action_; // "logout", "leave"
 };
 
 // 错误消息

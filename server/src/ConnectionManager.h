@@ -18,6 +18,7 @@ public:
     void addConnection(ChatConnection *connection);
     void authenticateConnection(ChatConnection *connection, const std::string &account);
     void removeConnection(ChatConnection *connection);
+    void unauthenticateConnection(ChatConnection *connection);
     void broadcastMessage(const ChatMessage &message, ChatConnection *sender = nullptr);
     void sendMessageToUser(const ChatMessage &message);
 

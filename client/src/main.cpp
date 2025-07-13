@@ -3,9 +3,22 @@
 #include <iostream>
 #include <string>
 #include <Poco/Net/NetException.h>
+#include <csignal>
+
+std::shared_ptr<ClientApp> clientApp;
+void signalHandler(int signum)
+{
+    if (clientApp)
+    {
+        clientApp->disconnect();
+        std::cout << "客户端已退出" << std::endl;
+    }
+    std::_Exit(0);
+}
 
 int main(int argc, char **argv)
 {
+    std::signal(SIGINT, signalHandler);
     std::string host = "localhost";
     int port = 9999;
 
