@@ -15,33 +15,6 @@ ClientApp::~ClientApp()
     disconnect();
 }
 
-int ClientApp::run(const std::string &host, int port)
-{
-    std::cout << "欢迎来到聊天室！" << std::endl;
-    std::cout << "正在连接到服务器 " << host << ":" << port << "..." << std::endl;
-
-    try
-    {
-        connectToServer(host, port);
-        startMessageReceiver();
-        handleUserInput();
-    }
-    catch (const Poco::Net::NetException &e)
-    {
-        std::cerr << "网络错误: " << e.displayText() << std::endl;
-        return 1;
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "错误: " << e.what() << std::endl;
-        return 1;
-    }
-
-    disconnect();
-    std::cout << "客户端已退出" << std::endl;
-    return 0;
-}
-
 void ClientApp::connectToServer(const std::string &host, int port)
 {
     socket_ = std::make_shared<Poco::Net::StreamSocket>();
@@ -60,8 +33,6 @@ void ClientApp::startMessageReceiver()
         std::cerr << "未连接到服务器，无法启动消息接收器" << std::endl;
         return;
     }
-    std::shared_ptr<ClientApp> self(this, [](ClientApp *p) {});
-    MessageHandler::getInstance().initialize(socket_, self);
     receiverThread_ = std::make_unique<Poco::Thread>();
     receiverThread_->start(MessageHandler::getInstance());
 }

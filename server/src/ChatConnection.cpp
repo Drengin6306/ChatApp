@@ -257,9 +257,8 @@ void ChatConnection::handleRegisterRequest(const RegisterRequest &registerReques
         if (response)
         {
             response->setStatus(MessageStatus::SUCCESS);
-            response->setMessage("注册成功，您的账号是: " + account_);
+            response->setMessage("注册成功，您的账号是: " + account_ + "，请登录你的账号");
         }
-        isAuthenticated_ = true;
         logger.information("User " + account_ + " registered successfully.");
     }
     else
