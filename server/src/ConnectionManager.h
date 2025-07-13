@@ -4,6 +4,7 @@
 #include <Poco/Net/TCPServerConnection.h>
 #include <Poco/Net/StreamSocket.h>
 #include <vector>
+#include <mutex>
 #include <shared_mutex>
 #include <string>
 

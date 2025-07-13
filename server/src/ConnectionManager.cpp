@@ -11,9 +11,10 @@ ConnectionManager &ConnectionManager::getInstance()
 
 void ConnectionManager::addConnection(ChatConnection *connection)
 {
-    std::unique_lock<std::shared_mutex> lock(connectionsMutex_);
-
-    unauthenticatedConnections_.push_back(connection);
+    {
+        std::unique_lock<std::shared_mutex> lock(connectionsMutex_);
+        unauthenticatedConnections_.push_back(connection);
+    }
 
     auto &logger = Poco::Logger::get("ConnectionManager");
     logger.information("New connection added. Total connections: " + std::to_string(getConnectionCount()));
@@ -21,20 +22,28 @@ void ConnectionManager::addConnection(ChatConnection *connection)
 
 void ConnectionManager::authenticateConnection(ChatConnection *connection, const std::string &account)
 {
-    std::unique_lock<std::shared_mutex> lock(connectionsMutex_);
-
-    // 将连接从未认证列表中移除
-    auto it = std::remove(unauthenticatedConnections_.begin(), unauthenticatedConnections_.end(), connection);
-    if (it != unauthenticatedConnections_.end())
+    ChatConnection *oldConnection = nullptr;
     {
-        unauthenticatedConnections_.erase(it, unauthenticatedConnections_.end());
+        std::unique_lock<std::shared_mutex> lock(connectionsMutex_);
+
+        // 将连接从未认证列表中移除
+        auto it = std::remove(unauthenticatedConnections_.begin(), unauthenticatedConnections_.end(), connection);
+        if (it != unauthenticatedConnections_.end())
+        {
+            unauthenticatedConnections_.erase(it, unauthenticatedConnections_.end());
+        }
+        // 检查是否已存在同一账号的连接
+        auto existingIt = connections_.find(account);
+        if (existingIt != connections_.end())
+        {
+            oldConnection = existingIt->second;
+        }
+        // 添加到已认证列表中
+        connections_[account] = connection;
     }
 
-    // 检查是否已存在同一账号的连接
-    auto existingIt = connections_.find(account);
-    if (existingIt != connections_.end())
+    if (oldConnection != nullptr)
     {
-        ChatConnection *oldConnection = existingIt->second;
         auto &logger = Poco::Logger::get("ConnectionManager");
         logger.warning("Account " + account + " already logged in. Kicking out old connection from " + oldConnection->getClientAddress());
 
@@ -52,26 +61,24 @@ void ConnectionManager::authenticateConnection(ChatConnection *connection, const
         }
     }
 
-    // 添加到已认证列表中
-    connections_[account] = connection;
-
     auto &logger = Poco::Logger::get("ConnectionManager");
     logger.information("Connection authenticated for account: " + account);
 }
 
 void ConnectionManager::removeConnection(ChatConnection *connection)
 {
-    std::unique_lock<std::shared_mutex> lock(connectionsMutex_);
-
     // 从已认证连接中移除
     if (connection->isAuthenticated())
     {
-        auto it = std::find_if(connections_.begin(), connections_.end(),
-                               [connection](const auto &pair)
-                               { return pair.second == connection; });
-        if (it != connections_.end())
         {
-            connections_.erase(it);
+            std::unique_lock<std::shared_mutex> lock(connectionsMutex_);
+            auto it = std::find_if(connections_.begin(), connections_.end(),
+                                   [connection](const auto &pair)
+                                   { return pair.second == connection; });
+            if (it != connections_.end())
+            {
+                connections_.erase(it);
+            }
         }
         auto &logger = Poco::Logger::get("ConnectionManager");
         logger.information("Connection removed for authenticated user: " + connection->getClientAddress() + " Total connections: " + std::to_string(getConnectionCount()));
@@ -79,10 +86,13 @@ void ConnectionManager::removeConnection(ChatConnection *connection)
     // 从未认证连接中移除
     else
     {
-        auto it = std::remove(unauthenticatedConnections_.begin(), unauthenticatedConnections_.end(), connection);
-        if (it != unauthenticatedConnections_.end())
         {
-            unauthenticatedConnections_.erase(it, unauthenticatedConnections_.end());
+            std::unique_lock<std::shared_mutex> lock(connectionsMutex_);
+            auto it = std::remove(unauthenticatedConnections_.begin(), unauthenticatedConnections_.end(), connection);
+            if (it != unauthenticatedConnections_.end())
+            {
+                unauthenticatedConnections_.erase(it, unauthenticatedConnections_.end());
+            }
         }
         auto &logger = Poco::Logger::get("ConnectionManager");
         logger.information("Connection removed for unauthenticated user: " + connection->getClientAddress() + " Total connections: " + std::to_string(getConnectionCount()));
@@ -91,38 +101,52 @@ void ConnectionManager::removeConnection(ChatConnection *connection)
 
 void ConnectionManager::broadcastMessage(const ChatMessage &message, ChatConnection *sender)
 {
-    std::shared_lock<std::shared_mutex> lock(connectionsMutex_);
+    std::vector<ChatConnection *> targetConnections;
+
+    {
+        std::shared_lock<std::shared_mutex> lock(connectionsMutex_);
+        for (const auto &pair : connections_)
+        {
+            ChatConnection *connection = pair.second;
+            if (connection != sender && connection->isConnected())
+            {
+                targetConnections.push_back(connection);
+            }
+        }
+    }
 
     auto &logger = Poco::Logger::get("ConnectionManager");
-    logger.information("Broadcasting message to " + std::to_string(connections_.size()) + " connections");
+    logger.information("Broadcasting message to " + std::to_string(targetConnections.size()) + " connections");
 
-    for (const auto &pair : connections_)
+    for (ChatConnection *connection : targetConnections)
     {
-        ChatConnection *connection = pair.second;
-        if (connection != sender && connection->isConnected())
+        try
         {
-            try
-            {
-                connection->sendMessage(message);
-            }
-            catch (const std::exception &e)
-            {
-                logger.error("Failed to send message to " + connection->getClientAddress() + ": " + e.what());
-            }
+            connection->sendMessage(message);
+        }
+        catch (const std::exception &e)
+        {
+            logger.error("Failed to send message to " + connection->getClientAddress() + ": " + e.what());
         }
     }
 }
 void ConnectionManager::sendMessageToUser(const ChatMessage &message)
 {
-    std::shared_lock<std::shared_mutex> lock(connectionsMutex_);
+    ChatConnection *connection = nullptr;
+    {
+        std::shared_lock<std::shared_mutex> lock(connectionsMutex_);
+        auto it = connections_.find(message.getReceiver());
+        if (it != connections_.end())
+        {
+            connection = it->second;
+        }
+    }
 
     auto &logger = Poco::Logger::get("ConnectionManager");
     logger.information("Sending message to user: " + message.getReceiver());
 
-    auto it = connections_.find(message.getReceiver());
-    if (it != connections_.end())
+    if (connection != nullptr && connection->isConnected())
     {
-        ChatConnection *connection = it->second;
         if (connection->isConnected())
         {
             try
