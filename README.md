@@ -5,10 +5,10 @@
 ## 功能特性
 
 - 多客户端同时连接
-- 实时消息广播
-- 简单的文本聊天
 - 优雅的连接管理
 - 跨平台支持（Windows/Linux）
+- 用户管理（支持用户注册、登录、登出、昵称管理等）
+- 消息协议（统一的消息格式）
 
 ## 项目结构
 
@@ -19,11 +19,12 @@ ChatApp/
 ├── CMakeUserPresets.json       # 用户级CMake预设（可选）
 ├── vcpkg.json                  # vcpkg依赖清单
 ├── vcpkg-configuration.json    # vcpkg注册表配置
-├── README.md                   # 项目说明
 ├── config/                     # 配置文件目录
+├── protocol/                   # 消息协议相关代码
 ├── server/                     # 服务器端代码
 ├── client/                     # 客户端代码
-└── build/                      # 编译输出目录
+├── build/                      # 编译输出目录
+└── README.md                   # 项目说明
 ```
 
 ## 依赖要求
@@ -76,53 +77,58 @@ make -C build
 
 #### Windows
 ```cmd
-# Debug 版本
-.\bin\chat_server.exe
-
-# Release 版本
-.\bin\chat_server.exe
+.\chat_server.exe
 ```
 
 #### Linux
 ```bash
-# Debug 或 Release 版本
-./bin/chat_server
+./chat_server
 ```
 
 ### 启动客户端
 
 #### Windows
 ```cmd
-# Debug 版本
-.\bin\chat_client.exe
-
-# Release 版本
-.\bin\chat_client.exe
+.\chat_client.exe
 ```
 
 #### Linux
 ```bash
-# Debug 或 Release 版本
-./bin/chat_client
+./chat_client
 ```
 
 ## 使用说明
 
 1. 首先启动服务器，默认监听端口 9999
 2. 启动一个或多个客户端连接到服务器
-3. 在客户端输入消息，按回车发送
-4. 输入 "quit" 退出客户端
+3. 在客户端输入命令使用
+
+## 用户管理
+
+- 支持用户注册、登录和登出。
+- 每个用户可设置唯一昵称，昵称在聊天室内唯一。
+- 服务器实现对用户的管理。
+- 用户信息存储在config/users.json中
+
+## 消息协议
+
+- 客户端与服务器之间采用统一的消息协议进行通信，所有消息均为 JSON 格式。
+- 典型消息结构如下：
+
+```json
+{
+  "id": "消息ID",
+  "type": "chatmessage|login|logout|register",
+  "sender": "发送者账号",
+  "receiver": "接收者账号（可选）",
+  "content": "消息内容",
+  "timestamp": "时间戳"
+}
+```
 
 ## 配置
 
 服务器配置文件位于 `config/server.properties`，可以修改端口和其他设置：
-
-```properties
-# 服务器配置
-server.port=9999
-server.host=0.0.0.0
-server.maxConnections=100
-```
 
 ## 开发说明
 
