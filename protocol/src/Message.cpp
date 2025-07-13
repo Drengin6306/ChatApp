@@ -257,8 +257,8 @@ LoginResponse::LoginResponse() : Message(MessageType::LOGIN_RESPONSE), status_(M
 {
 }
 
-LoginResponse::LoginResponse(MessageStatus status, const std::string &account, const std::string &message)
-    : Message(MessageType::LOGIN_RESPONSE), status_(status), account_(account), message_(message)
+LoginResponse::LoginResponse(MessageStatus status, const std::string &account, const std::string &username, const std::string &message)
+    : Message(MessageType::LOGIN_RESPONSE), status_(status), account_(account), username_(username), message_(message)
 {
 }
 
@@ -290,6 +290,7 @@ Poco::JSON::Object::Ptr LoginResponse::toJSON() const
     auto json = Message::toJSON();
     json->set("account", account_);
     json->set("status", static_cast<int>(status_));
+    json->set("username", username_);
     json->set("message", message_);
     return json;
 }
@@ -305,6 +306,7 @@ bool LoginResponse::fromJSON(const Poco::JSON::Object::Ptr &json)
     {
         account_ = json->getValue<std::string>("account");
         status_ = static_cast<MessageStatus>(json->getValue<int>("status"));
+        username_ = json->getValue<std::string>("username");
         message_ = json->getValue<std::string>("message");
         return true;
     }
@@ -315,17 +317,17 @@ bool LoginResponse::fromJSON(const Poco::JSON::Object::Ptr &json)
 }
 
 // ChatMessage实现
-ChatMessage::ChatMessage() : Message(MessageType::BROADCAST_MESSAGE), sender_(""), receiver_(""), content_("")
+ChatMessage::ChatMessage() : Message(MessageType::BROADCAST_MESSAGE), sender_(""), sender_username_(""), receiver_(""), content_("")
 {
 }
 
-ChatMessage::ChatMessage(const std::string &sender, const std::string &content)
-    : Message(MessageType::BROADCAST_MESSAGE), sender_(sender), receiver_(""), content_(content)
+ChatMessage::ChatMessage(const std::string &sender, const std::string &sender_username, const std::string &content)
+    : Message(MessageType::BROADCAST_MESSAGE), sender_(sender), sender_username_(sender_username), receiver_(""), content_(content)
 {
 }
 
-ChatMessage::ChatMessage(const std::string &sender, const std::string &receiver, const std::string &content)
-    : Message(MessageType::PRIVATE_MESSAGE), sender_(sender), receiver_(receiver), content_(content)
+ChatMessage::ChatMessage(const std::string &sender, const std::string &sender_username, const std::string &receiver, const std::string &content)
+    : Message(MessageType::PRIVATE_MESSAGE), sender_(sender), sender_username_(sender_username), receiver_(receiver), content_(content)
 {
 }
 
@@ -356,6 +358,7 @@ Poco::JSON::Object::Ptr ChatMessage::toJSON() const
 {
     auto json = Message::toJSON();
     json->set("sender", sender_);
+    json->set("sender_username", sender_username_);
     json->set("content", content_);
     if (!receiver_.empty())
     {
@@ -374,6 +377,7 @@ bool ChatMessage::fromJSON(const Poco::JSON::Object::Ptr &json)
     try
     {
         sender_ = json->getValue<std::string>("sender");
+        sender_username_ = json->getValue<std::string>("sender_username");
         content_ = json->getValue<std::string>("content");
 
         // receiver是可选字段

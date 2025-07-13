@@ -127,7 +127,7 @@ void ClientApp::sendBroadcastMessage(const std::string &input)
         std::cerr << "消息不能为空" << std::endl;
         return;
     }
-    sendMessage(ChatMessage(this->account_, content));
+    sendMessage(ChatMessage(this->account_, this->username_, content));
 }
 
 void ClientApp::sendPrivateMessage(const std::string &input)
@@ -154,7 +154,7 @@ void ClientApp::sendPrivateMessage(const std::string &input)
             if (messageStart != std::string::npos)
             {
                 std::string messageContent = command.substr(messageStart);
-                sendMessage(ChatMessage(this->account_, receiver, messageContent));
+                sendMessage(ChatMessage(this->account_, this->username_, receiver, messageContent));
             }
             else
             {
@@ -275,5 +275,5 @@ void ClientApp::showHelp()
     std::cout << "  \\b <message>        - 发送广播消息\n";
     std::cout << "  \\p <account> <message> - 发送私聊消息\n";
     std::cout << "  help      - 显示帮助信息\n";
-    std::cout << "  quit/exit - 退出程序\n";
+    std::cout << "  quit - 退出程序\n";
 }

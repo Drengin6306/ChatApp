@@ -22,6 +22,11 @@ public:
     void setAccount(const std::string &account) { account_ = account; }
     void setAuthenticated(bool authenticated) { authenticated_ = authenticated; }
     void setConnected(bool connected) { connected_ = connected; }
+    void setUsername(const std::string &username) { username_ = username; }
+
+    const std::string &getAccount() const { return account_; }
+    const std::string &getUsername() const { return username_; }
+
     void connectToServer(const std::string &host, int port);
     std::shared_ptr<Poco::Net::StreamSocket> getSocket() const { return socket_; }
     void startMessageReceiver();
@@ -40,6 +45,7 @@ private:
     std::unordered_map<std::string, std::string> userMap_;
     std::shared_ptr<Poco::Net::StreamSocket> socket_;
     std::unique_ptr<Poco::Thread> receiverThread_;
+    std::string username_;
     std::string account_;
     bool connected_;
     bool authenticated_;

@@ -117,7 +117,7 @@ class LoginResponse : public Message
 {
 public:
     LoginResponse();
-    LoginResponse(MessageStatus status, const std::string &account, const std::string &message = "");
+    LoginResponse(MessageStatus status, const std::string &account, const std::string &username, const std::string &message = "");
 
     std::string serialize() const override;
     bool deserialize(const std::string &data) override;
@@ -125,10 +125,12 @@ public:
     void setStatus(MessageStatus status) { status_ = status; }
     void setAccount(const std::string &account) { account_ = account; }
     void setMessage(const std::string &message) { message_ = message; }
+    void setUsername(const std::string &username) { username_ = username; }
 
     MessageStatus getStatus() const { return status_; }
     const std::string &getAccount() const { return account_; }
     const std::string &getMessage() const { return message_; }
+    const std::string &getUsername() const { return username_; }
 
 protected:
     Poco::JSON::Object::Ptr toJSON() const override;
@@ -136,6 +138,7 @@ protected:
 
 private:
     MessageStatus status_;
+    std::string username_;
     std::string account_;
     std::string message_;
 };
@@ -145,8 +148,8 @@ class ChatMessage : public Message
 {
 public:
     ChatMessage();
-    ChatMessage(const std::string &sender, const std::string &content);
-    ChatMessage(const std::string &sender, const std::string &receiver, const std::string &content);
+    ChatMessage(const std::string &sender, const std::string &sender_username, const std::string &content);
+    ChatMessage(const std::string &sender, const std::string &sender_username, const std::string &receiver, const std::string &content);
 
     std::string serialize() const override;
     bool deserialize(const std::string &data) override;
@@ -154,10 +157,12 @@ public:
     void setSender(const std::string &sender) { sender_ = sender; }
     void setReceiver(const std::string &receiver) { receiver_ = receiver; }
     void setContent(const std::string &content) { content_ = content; }
+    void setSenderUsername(const std::string &username) { sender_username_ = username; }
 
     const std::string &getSender() const { return sender_; }
     const std::string &getReceiver() const { return receiver_; }
     const std::string &getContent() const { return content_; }
+    const std::string &getSenderUsername() const { return sender_username_; }
 
     // 辅助方法
     bool isPrivateMessage() const { return !receiver_.empty(); }
@@ -169,6 +174,7 @@ protected:
 
 private:
     std::string sender_;
+    std::string sender_username_;
     std::string receiver_;
     std::string content_;
 };

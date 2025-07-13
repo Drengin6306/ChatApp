@@ -83,6 +83,7 @@ void MessageHandler::handleLoginResponse(const LoginResponse &response)
         {
             clientApp->setAuthenticated(true);
             clientApp->setAccount(response.getAccount());
+            clientApp->setUsername(response.getUsername());
             std::cout << response.getMessage() << std::endl;
         }
         else
@@ -114,8 +115,8 @@ void MessageHandler::handleChatMessage(const ChatMessage &message)
     if (auto clientApp = clientApp_.lock())
     {
         // 使用结构化绑定简化代码
-        auto [sender, content, timestamp, isPrivate] =
-            std::tuple{message.getSender(), message.getContent(),
+        auto [sender, sender_username, content, timestamp, isPrivate] =
+            std::tuple{message.getSender(), message.getSenderUsername(), message.getContent(),
                        message.getTimestamp(), message.isPrivateMessage()};
 
         // 处理时间戳
@@ -135,7 +136,7 @@ void MessageHandler::handleChatMessage(const ChatMessage &message)
             ss << "[广播] ";
         }
         ss << std::endl;
-        ss << sender << ": ";
+        ss << sender_username << "(" << sender << ")" << ": ";
         ss << content;
 
         std::cout << ss.str() << std::endl;

@@ -218,6 +218,8 @@ void ChatConnection::handleLoginRequest(const LoginRequest &loginRequest)
         {
             response->setStatus(MessageStatus::SUCCESS);
             response->setAccount(account_);
+            std::string username = userManager.getUserByAccount(account_).username;
+            response->setUsername(username);
             response->setMessage("登录成功");
         }
         isAuthenticated_ = true;
