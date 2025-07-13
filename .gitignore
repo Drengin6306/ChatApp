@@ -25,3 +25,6 @@ Makefile
 
 # vcpkg 用户配置
 CmakeUserPresets.json
+
+# 账号信息
+config/users.json
