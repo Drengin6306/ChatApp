@@ -612,11 +612,67 @@ std::unique_ptr<Message> Message::parseMessage(const std::string &data)
 
         int typeInt = json->getValue<int>("type");
         MessageType type = static_cast<MessageType>(typeInt);
-
-        auto message = createMessage(type);
-        if (message && message->deserialize(data))
+        switch (type)
         {
+        case MessageType::REGISTER_REQUEST:
+        {
+            auto message = std::make_unique<RegisterRequest>();
+            message->deserialize(data);
             return message;
+        }
+        break;
+        case MessageType::REGISTER_RESPONSE:
+        {
+            auto message = std::make_unique<RegisterResponse>();
+            message->deserialize(data);
+            return message;
+        }
+        break;
+        case MessageType::LOGIN_REQUEST:
+        {
+            auto message = std::make_unique<LoginRequest>();
+            message->deserialize(data);
+            return message;
+        }
+        break;
+        case MessageType::LOGIN_RESPONSE:
+        {
+            auto message = std::make_unique<LoginResponse>();
+            message->deserialize(data);
+            return message;
+        }
+        break;
+        case MessageType::BROADCAST_MESSAGE:
+        case MessageType::PRIVATE_MESSAGE:
+        {
+            auto message = std::make_unique<ChatMessage>();
+            message->deserialize(data);
+            return message;
+        }
+        break;
+        case MessageType::USER_LIST_RESPONSE:
+        {
+            auto message = std::make_unique<UserListResponse>();
+            message->deserialize(data);
+            return message;
+        }
+        break;
+        case MessageType::USER_STATUS_UPDATE:
+        {
+            auto message = std::make_unique<UserStatusUpdate>();
+            message->deserialize(data);
+            return message;
+        }
+        break;
+        case MessageType::ERROR_MESSAGE:
+        {
+            auto message = std::make_unique<ErrorMessage>();
+            message->deserialize(data);
+            return message;
+        }
+        break;
+        default:
+            break;
         }
     }
     catch (const std::exception &)
