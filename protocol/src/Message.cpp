@@ -288,6 +288,7 @@ bool LoginResponse::deserialize(const std::string &data)
 Poco::JSON::Object::Ptr LoginResponse::toJSON() const
 {
     auto json = Message::toJSON();
+    json->set("account", account_);
     json->set("status", static_cast<int>(status_));
     json->set("message", message_);
     return json;
@@ -302,6 +303,7 @@ bool LoginResponse::fromJSON(const Poco::JSON::Object::Ptr &json)
 
     try
     {
+        account_ = json->getValue<std::string>("account");
         status_ = static_cast<MessageStatus>(json->getValue<int>("status"));
         message_ = json->getValue<std::string>("message");
         return true;

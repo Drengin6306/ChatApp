@@ -221,6 +221,8 @@ void ChatConnection::handleLoginRequest(const LoginRequest &loginRequest)
             response->setMessage("登录成功");
         }
         isAuthenticated_ = true;
+        auto &connectionManager = ConnectionManager::getInstance();
+        connectionManager.authenticateConnection(this, account_);
         logger.information("User " + account_ + " logged in successfully.");
     }
     else
